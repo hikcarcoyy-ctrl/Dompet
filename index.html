@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dompet</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007bff">
+
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f0f4ff; }
+    .app { max-width: 400px; margin: auto; padding: 15px; }
+    .header { text-align: center; padding: 20px; background: #007bff; color: white; border-radius: 0 0 20px 20px; }
+    .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin: 15px 0; }
+    .title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+    .balance { font-size: 22px; font-weight: bold; color: #007bff; margin: 10px 0; }
+    input, select { width: 100%; padding: 10px; margin: 8px 0; border-radius: 8px; border: 1px solid #ccc; }
+    .btn { display: block; width: 100%; padding: 12px; margin: 5px 0; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .tx { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>Dompet</h2>
+    <p>Catatan Keuangan Pribadi</p>
+  </div>
+
+  <div class="app">
+    <!-- Saldo Utama -->
+    <div class="card">
+      <div class="title">Total Saldo</div>
+      <div id="totalBalance" class="balance">Rp 0</div>
+      <p><b>Dompet:</b> <span id="walletBalance">Rp 0</span></p>
+      <p><b>Tabungan:</b> <span id="savingBalance">Rp 0</span></p>
+    </div>
+
+    <!-- Input Transaksi -->
+    <div class="card">
+      <div class="title">Catat Transaksi</div>
+      <select id="account">
+        <option value="wallet">Dompet</option>
+        <option value="saving">Tabungan</option>
+      </select>
+      <select id="type">
+        <option value="income">Pemasukan</option>
+        <option value="expense">Pengeluaran</option>
+      </select>
+      <input type="number" id="amount" placeholder="Nominal">
+      <input type="text" id="note" placeholder="Keterangan">
+      <button class="btn btn-primary" onclick="addTransaction()">Simpan</button>
+    </div>
+
+    <!-- Riwayat -->
+    <div class="card">
+      <div class="title">Riwayat Transaksi</div>
+      <div id="txList"></div>
+      <button class="btn btn-danger" onclick="resetData()">Hapus Semua Data</button>
+    </div>
+  </div>
+
+  <script>
+    let wallet = 0;
+    let saving = 0;
+    let transactions = [];
+
+    // Format Rupiah
+    function formatIDR(n) {
+      return "Rp " + n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function updateUI() {
+      document.getElementById("walletBalance").textContent = formatIDR(wallet);
+      document.getElementById("savingBalance").textContent = formatIDR(saving);
+      document.getElementById("totalBalance").textContent = formatIDR(wallet + saving);
+
+      const list = document.getElementById("txList");
+      list.innerHTML = "";
+      if (transactions.length === 0) {
+        list.innerHTML = "<p>Belum ada transaksi.</p>";
+      } else {
+        transactions.forEach(tx => {
+          list.innerHTML += `<div class="tx">
+            <span>[${tx.account}] ${tx.note}</span>
+            <span style="color:${tx.type==="income"?"green":"red"}">
+              ${tx.type==="income"?"+":"-"} ${formatIDR(tx.amount)}
+            </span>
+          </div>`;
+        });
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem("wallet", wallet);
+      localStorage.setItem("saving", saving);
+      localStorage.setItem("transactions", JSON.stringify(transactions));
+    }
+
+    function loadData() {
+      wallet = parseInt(localStorage.getItem("wallet")) || 0;
+      saving = parseInt(localStorage.getItem("saving")) || 0;
+      transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+      updateUI();
+    }
+
+    function addTransaction() {
+      const account = document.getElementById("account").value;
+      const type = document.getElementById("type").value;
+      const amount = parseInt(document.getElementById("amount").value) || 0;
+      const note = document.getElementById("note").value || "-";
+
+      if (amount <= 0) return;
+
+      if (account === "wallet") {
+        wallet += (type === "income" ? amount : -amount);
+      } else {
+        saving += (type === "income" ? amount : -amount);
+      }
+
+      transactions.unshift({ account, type, amount, note });
+      saveData();
+      updateUI();
+
+      document.getElementById("amount").value = "";
+      document.getElementById("note").value = "";
+    }
+
+    function resetData() {
+      if (confirm("Yakin ingin menghapus semua data?")) {
+        wallet = 0;
+        saving = 0;
+        transactions = [];
+        saveData();
+        updateUI();
+      }
+    }
+
+    // PWA Service Worker
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js");
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
